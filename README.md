@@ -13,12 +13,6 @@ reach a browser or a mobile app.
 pip install secondfactor      # or: uv add secondfactor
 ```
 
-Until the first release is on PyPI, install it from this repository:
-
-```bash
-pip install git+https://github.com/lambda-payments/secondfactor-python
-```
-
 ## Set up
 
 From the secondfactor.ai dashboard you need an **API key** (API keys page). For
@@ -62,7 +56,7 @@ anyone can edit a URL. `verify_session` succeeds once. A second call raises
 
 Draw the screens yourself. Your server creates the session and gives its token
 to your frontend, which calls our session endpoints directly (see the
-[`@secondfactor/js`](https://github.com/lambda-payments/secondfactor-js)
+[`@secondfactor/js`](https://github.com/secondfactor/secondfactor-js)
 client). No proxy is needed, and your API key stays on your server.
 
 ```python
