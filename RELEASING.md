@@ -5,18 +5,28 @@ Releases are published to PyPI under the project name `secondfactor` by the
 maintainer starts it by hand from the Actions tab, and it publishes only from
 `main`.
 
-## One-time setup
+## How the repository is protected
 
-1. On PyPI, open the `secondfactor` project, go to **Publishing**, and add a
-   GitHub trusted publisher with owner `secondfactor`, repository
-   `secondfactor-python`, workflow `publish.yml` and environment `pypi`. No API
-   token is stored anywhere; PyPI trusts the workflow's OIDC token instead.
-2. In this repository's **Settings → Environments**, create an environment
-   named `pypi`. Add required reviewers to it if a second person should
-   approve every upload.
-3. In **Settings → Branches**, protect `main` and require the `ci` status
-   check, which passes only when the tests pass on every supported Python
-   version (3.9 to 3.13).
+These settings live on GitHub rather than in this repository, so they are
+recorded here. Keep them in place; the release process depends on them.
+
+- **`main`** accepts changes only through a pull request whose `ci` check has
+  passed on every supported Python version (3.9 to 3.13). Force-pushes and
+  deletion are blocked, and nobody can bypass the rule.
+- **Tags** cannot be moved or deleted once created, so a release tag always
+  names the commit that was published.
+- **The `pypi` environment** deploys only from `main` and waits for a required
+  reviewer to approve each upload.
+- **Actions** may use only GitHub's own actions, `astral-sh/setup-uv` and
+  `pypa/gh-action-pypi-publish`, each pinned to a full commit SHA. Workflows
+  from first-time and outside contributors wait for approval before they run.
+- **Secret scanning** with push protection, **Dependabot** alerts and security
+  updates, and **private vulnerability reporting** are on.
+
+PyPI must trust the workflow: on the `secondfactor` project, under
+**Publishing**, a GitHub trusted publisher names owner `secondfactor`,
+repository `secondfactor-python`, workflow `publish.yml` and environment
+`pypi`. No PyPI API token exists for this project, and none should be created.
 
 ## Each release
 
@@ -27,13 +37,15 @@ maintainer starts it by hand from the Actions tab, and it publishes only from
    to publish when they differ.
 2. Move the `unreleased` heading in `CHANGELOG.md` to the version and today's
    date.
-3. Commit `chore: release <version>` and merge it to `main`, then wait for the
-   `test` workflow to go green.
-4. Open **Actions → publish → Run workflow**, choose `main`, and run it. The
-   workflow runs the full test matrix again, checks the two versions agree and
-   that the version has not been tagged before, builds, uploads to PyPI, and
-   pushes the `v<version>` tag.
-5. Create a GitHub release from the new tag, pasting the changelog section.
+3. Open a pull request titled `chore: release <version>` and merge it once
+   `ci` is green.
+4. Open **Actions → publish → Run workflow** and run it on `main`. The workflow
+   runs the full test matrix again, checks that the two versions agree and
+   that the version has not been tagged before, and builds the package.
+5. Approve the `pypi` deployment when GitHub asks. The workflow then uploads
+   to PyPI with signed attestations and creates the `v<version>` tag.
+6. Create a GitHub release from the new tag, pasting the changelog section.
+   Releases are immutable once published.
 
 To check a build locally before releasing, confirm the wheel holds only
 `secondfactor/__init__.py` and the licence:
