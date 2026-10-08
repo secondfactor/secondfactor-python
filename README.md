@@ -10,7 +10,7 @@ reach a browser or a mobile app.
 ## Install
 
 ```bash
-pip install secondfactor
+pip install secondfactor      # or: uv add secondfactor
 ```
 
 Until the first release is on PyPI, install it from this repository:
@@ -62,7 +62,7 @@ anyone can edit a URL. `verify_session` succeeds once. A second call raises
 
 Draw the screens yourself. Your server creates the session and gives its token
 to your frontend, which calls our session endpoints directly (see the
-[`@secondfactor/otp`](https://github.com/lambda-payments/secondfactor-js)
+[`@secondfactor/js`](https://github.com/lambda-payments/secondfactor-js)
 client). No proxy is needed, and your API key stays on your server.
 
 ```python
@@ -120,8 +120,12 @@ both flows.
 
 ## Development
 
+The project is managed with [uv](https://docs.astral.sh/uv/). The library
+lives in `src/secondfactor/` and its tests in `tests/`.
+
 ```bash
-python -m unittest -v
+uv run python -m unittest discover -s tests -v
+uv build          # the sdist and wheel, into dist/
 ```
 
 The tests run against a local stub of the API and need no network or key.

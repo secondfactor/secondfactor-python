@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
 
 [project]
 name = "secondfactor"
@@ -8,10 +8,10 @@ version = "0.2.0"
 description = "secondfactor.ai for Python servers: hosted and headless phone verification, and OTP send and check. No dependencies."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["otp", "2fa", "phone-verification", "sms", "whatsapp", "secondfactor"]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
@@ -20,6 +20,3 @@ classifiers = [
 Homepage = "https://secondfactor.ai"
 Source = "https://github.com/lambda-payments/secondfactor-python"
 Changelog = "https://github.com/lambda-payments/secondfactor-python/blob/main/CHANGELOG.md"
-
-[tool.setuptools]
-py-modules = ["secondfactor"]

@@ -23,6 +23,8 @@ The first release published to PyPI, and the first from this repository.
   `already_verified` for a verification that can never succeed, instead of
   returning its body.
 - Requests are sent as JSON rather than form-encoded.
+- Packaged with uv: the module moved to `src/secondfactor/`, built by
+  `uv_build`. The import is still `import secondfactor`.
 
 ### Deprecated
 
