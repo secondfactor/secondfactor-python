@@ -46,7 +46,7 @@ import urllib.request
 import warnings
 
 __all__ = ["SecondFactor", "SecondFactorError"]
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 DEFAULT_BASE_URL = "https://api.secondfactor.ai"
 USER_AGENT = f"secondfactor-python/{__version__}"
