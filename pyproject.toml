@@ -18,5 +18,5 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://secondfactor.ai"
-Source = "https://github.com/lambda-payments/secondfactor-python"
-Changelog = "https://github.com/lambda-payments/secondfactor-python/blob/main/CHANGELOG.md"
+Source = "https://github.com/secondfactor/secondfactor-python"
+Changelog = "https://github.com/secondfactor/secondfactor-python/blob/main/CHANGELOG.md"

@@ -59,13 +59,34 @@ _DEAD_VERIFICATION_CODES = {
     "VERIFIED": "already_verified",
 }
 
+# Plain http:// is accepted only for these hosts, so a local stub or tunnel can
+# be used in development while the API key never crosses a network unencrypted.
+_LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "::1")
+
+
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Treat every redirect as an error instead of following it.
+
+    urllib would otherwise resend the request's headers, the API key among
+    them, to whatever host the `Location` names, including over plain HTTP.
+    The API never redirects, so a redirect means something between this client
+    and the API is wrong, and the safe answer is to stop.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_opener = urllib.request.build_opener(_RefuseRedirects)
+
 
 class SecondFactorError(Exception):
     """A request secondfactor.ai refused, or could not be reached for.
 
     `code` is the stable string to branch on, such as `rate_limited`,
     `insufficient_funds`, `not_verified` or `network_error`. `status` is the
-    HTTP status, or `None` when no answer arrived. The message is written for
+    HTTP status of a refusal, or `None` when no answer arrived or a successful
+    answer could not be trusted. The message is written for
     developers and is safe to log; never show it to your end users.
     """
 
@@ -85,6 +106,11 @@ class SecondFactor:
     def __init__(self, api_key, service_sid=None, base_url=DEFAULT_BASE_URL, timeout=10):
         if not api_key:
             raise ValueError("api_key is required.")
+        parts = urllib.parse.urlsplit(base_url)
+        if not parts.hostname or not (
+            parts.scheme == "https" or (parts.scheme == "http" and parts.hostname in _LOOPBACK_HOSTS)
+        ):
+            raise ValueError("base_url must be an https:// URL; plain http:// is accepted only for localhost.")
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -139,6 +165,10 @@ class SecondFactor:
         session = self._request(
             "POST", self._service_path(f"VerificationSessions/{_segment(stored_sid)}/Confirm"), body
         )
+        # The API answers 2xx only for a verified session, but a caller signs a
+        # user in on what this returns, so it fails closed if that ever changes.
+        if session.get("status") != "VERIFIED":
+            raise SecondFactorError("secondfactor.ai confirmed a session that is not verified.", "not_verified")
         return {
             "phone": session["to"],
             "client_reference_id": session.get("client_reference_id"),
@@ -197,7 +227,7 @@ class SecondFactor:
         return self._service_sid
 
     def _service_path(self, path):
-        return f"/v2/Services/{self.service_sid()}/{path}"
+        return f"/v2/Services/{_segment(self.service_sid())}/{path}"
 
     def _request(self, method, path, body=None, headers=None, answers=()):
         """One call. Returns the JSON body of a 2xx, or of a status in `answers`.
@@ -220,7 +250,7 @@ class SecondFactor:
             self.base_url + path, data=data, headers=all_headers, method=method
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with _opener.open(request, timeout=self.timeout) as response:
                 return json.load(response)
         except urllib.error.HTTPError as exc:
             try:

@@ -26,6 +26,19 @@ The first release published to PyPI, and the first from this repository.
 - Packaged with uv: the module moved to `src/secondfactor/`, built by
   `uv_build`. The import is still `import secondfactor`.
 
+### Security
+
+- Redirects are refused rather than followed. urllib resends the API key to
+  whatever host a redirect names, over plain HTTP too; a redirect now raises
+  `SecondFactorError` with the redirect's status instead.
+- `base_url` must use `https://`. Plain `http://` is accepted only for
+  `localhost`, `127.0.0.1` and `::1`, so the key never crosses a network
+  unencrypted. Any other value raises `ValueError`.
+- `verify_session` raises `SecondFactorError` with `code` `not_verified` unless
+  the confirmed session's status is `VERIFIED`, even on a successful answer.
+- A `service_sid` passed in is quoted as a single path segment, like every
+  other identifier.
+
 ### Deprecated
 
 - `start()`. Use `send()`; `start()` still works and emits a

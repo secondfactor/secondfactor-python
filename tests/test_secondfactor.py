@@ -33,9 +33,10 @@ def envelope(status, code, message="Refused."):
 class Stub(BaseHTTPRequestHandler):
     """Records every request and answers from `Stub.routes`.
 
-    A route maps `(method, path)` to `(status, body)`. A `str` body is sent as
-    it is, to imitate a proxy's HTML error page. Anything unrouted is a 404 in
-    the API's error envelope.
+    A route maps `(method, path)` to `(status, body)`, or to
+    `(status, body, headers)` when the answer needs extra headers such as a
+    redirect's `Location`. A `str` body is sent as it is, to imitate a proxy's
+    HTML error page. Anything unrouted is a 404 in the API's error envelope.
     """
 
     routes = {}
@@ -50,9 +51,11 @@ class Stub(BaseHTTPRequestHandler):
             "headers": self.headers,  # case-insensitive, as HTTP header names are
             "body": json.loads(raw) if raw else None,
         })
-        status, payload = Stub.routes.get((self.command, self.path), envelope(404, "not_found"))
+        status, payload, *extra = Stub.routes.get((self.command, self.path), envelope(404, "not_found"))
         self.send_response(status)
         self.send_header("Content-Type", "text/html" if isinstance(payload, str) else "application/json")
+        for name, value in (extra[0] if extra else {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write((payload if isinstance(payload, str) else json.dumps(payload)).encode())
 
@@ -109,6 +112,14 @@ class ServiceLookupTest(StubTestCase):
         with self.assertRaises(ValueError):
             SecondFactor("")
 
+    def test_a_given_service_sid_stays_one_path_segment(self):
+        sf = SecondFactor("sf_key.secret", service_sid="../../x", base_url=self.base)
+
+        with self.assertRaises(SecondFactorError):
+            sf.send("+9779841000001")
+
+        self.assertEqual(self.last()["path"], "/v2/Services/..%2F..%2Fx/Verifications")
+
 
 class WireTest(StubTestCase):
     def test_every_request_carries_the_key_the_user_agent_and_json(self):
@@ -123,6 +134,35 @@ class WireTest(StubTestCase):
         self.assertEqual(headers["Idempotency-Key"], "click-1")
         # Parameters left unset are not sent at all, rather than sent as null.
         self.assertEqual(self.last()["body"], {"To": "+9779841000001"})
+
+
+class TransportSecurityTest(StubTestCase):
+    """The API key must only ever travel to the API, and only encrypted."""
+
+    def test_a_redirect_is_refused_and_never_followed(self):
+        # urllib would otherwise resend every header, the API key included, to
+        # whatever host the Location names, even over plain HTTP.
+        for status in (301, 302, 303, 307, 308):
+            with self.subTest(status=status):
+                Stub.requests = []
+                self.route("POST", "Verifications", (status, "", {"Location": f"{self.base}/elsewhere"}))
+
+                with self.assertRaises(SecondFactorError) as caught:
+                    self.sf.send("+9779841000001")
+
+                self.assertEqual(caught.exception.status, status)
+                self.assertNotIn("/elsewhere", [r["path"] for r in Stub.requests])
+
+    def test_a_base_url_without_tls_is_refused_unless_it_is_this_machine(self):
+        for base_url in ("http://api.secondfactor.ai", "http://10.0.0.5", "ftp://api.secondfactor.ai",
+                         "file:///etc/passwd", "api.secondfactor.ai", "https://"):
+            with self.subTest(base_url=base_url), self.assertRaises(ValueError):
+                SecondFactor("sf_key.secret", base_url=base_url)
+
+        for base_url in ("https://api.secondfactor.ai", "http://localhost:8000", "http://127.0.0.1:8000",
+                         "http://[::1]:8000"):
+            with self.subTest(base_url=base_url):
+                SecondFactor("sf_key.secret", base_url=base_url)
 
 
 class SessionTest(StubTestCase):
@@ -168,6 +208,18 @@ class SessionTest(StubTestCase):
         self.assertEqual(result["session"], SESSION)
         self.assertEqual(self.last()["method"], "POST")
         self.assertEqual(self.last()["body"], {"ReturnToken": "vsr_token"})
+
+    def test_a_confirm_answer_that_is_not_verified_signs_nobody_in(self):
+        # Defence in depth: even a 2xx must say the session is verified before
+        # a phone number is handed back to sign someone in with.
+        for status in ("PENDING", "EXPIRED", None):
+            with self.subTest(status=status):
+                self.route("POST", f"VerificationSessions/{SESSION['sid']}/Confirm", (200, {**SESSION, "status": status}))
+
+                with self.assertRaises(SecondFactorError) as caught:
+                    self.sf.verify_session(SESSION["sid"], "vsr_token")
+
+                self.assertEqual(caught.exception.code, "not_verified")
 
     def test_a_headless_confirm_sends_no_token(self):
         self.route("POST", f"VerificationSessions/{SESSION['sid']}/Confirm", (200, SESSION))

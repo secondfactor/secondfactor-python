@@ -2,21 +2,61 @@ name: test
 
 on:
   push:
-    branches: [main]
   pull_request:
+  # The publish workflow calls this one, so nothing is released without a
+  # green run of the full matrix on the exact commit being published.
+  workflow_call:
+
+# Tests need nothing beyond reading the code. Pull requests from forks run
+# here too, so the token must never be able to write.
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an older run's result irrelevant. The
+# event name keeps a release's test run apart from the push runs.
+concurrency:
+  group: test-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unittest:
-    runs-on: ubuntu-latest
+    # A fixed image rather than ubuntu-latest, so the pinned uv checksum
+    # below always matches the runner's architecture.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     strategy:
+      # Run every version to the end, so one failure does not hide another.
+      fail-fast: false
       matrix:
-        python-version: ["3.9", "3.11", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          # An exact uv, verified by checksum, so a compromised or broken uv
+          # release cannot reach this pipeline until someone bumps it here.
+          version: "0.11.7"
+          checksum: "6681d691eb7f9c00ac6a3af54252f7ab29ae72f0c8f95bdc7f9d1401c23ea868"
           python-version: ${{ matrix.python-version }}
+          # The package has no dependencies, so a cache saves nothing and
+          # would only be another input that other runs can write to.
+          enable-cache: false
       - name: Tests
         run: uv run --locked python -W error::ResourceWarning -m unittest discover -s tests -v
       - name: The package builds
         run: uv build
+
+  # A single, stable check name to require in branch protection, so the
+  # requirement does not need editing whenever the matrix changes.
+  ci:
+    if: always()
+    needs: unittest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every Python version passed
+        env:
+          RESULT: ${{ needs.unittest.result }}
+        run: test "$RESULT" = "success"
