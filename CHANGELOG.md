@@ -4,6 +4,17 @@ All notable changes to this package are recorded here. The project follows
 [Semantic Versioning](https://semver.org/); while the version is below 1.0.0, a
 minor release may change behaviour, and every such change is listed.
 
+## 0.3.0 — 2026-10-12
+
+### Removed
+
+- Headless verification. `create_session` no longer takes `mode`, and
+  `return_url` is now its second, required argument: every session is
+  completed on the hosted verification page. `verify_session` always needs
+  the return token. secondfactor.ai no longer accepts headless sessions, so
+  code that created them fails with `invalid_parameter` whether or not it
+  upgrades.
+
 ## 0.2.1 — 2026-10-08
 
 No changes to the library's code or behaviour.

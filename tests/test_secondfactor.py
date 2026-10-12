@@ -18,7 +18,6 @@ from secondfactor import USER_AGENT, SecondFactor, SecondFactorError
 SERVICE = "VA0a1b2c3d4e5f60718293a4b5c6d7e8f9"
 SESSION = {
     "sid": "VSN26H7K3MQ2XWZ8RT4",
-    "mode": "hosted",
     "status": "VERIFIED",
     "to": "+9779841000001",
     "client_reference_id": "signup-8812",
@@ -176,18 +175,9 @@ class SessionTest(StubTestCase):
         self.assertEqual(session["url"], "https://verify/#vst_x")
         self.assertEqual(self.last()["body"], {
             "To": "+9779841000001",
-            "Mode": "hosted",
             "ReturnUrl": "https://app.example.com/verified",
             "ClientReferenceId": "signup-8812",
         })
-
-    def test_create_a_headless_session(self):
-        self.route("POST", "VerificationSessions", (201, {"sid": SESSION["sid"], "client_token": "vst_x"}))
-
-        session = self.sf.create_session("+9779841000001", mode="headless")
-
-        self.assertEqual(session["client_token"], "vst_x")
-        self.assertEqual(self.last()["body"], {"To": "+9779841000001", "Mode": "headless"})
 
     def test_a_refused_create_raises_with_the_servers_code_and_message(self):
         self.route("POST", "VerificationSessions", envelope(400, "no_return_origin", "Add a return origin."))
@@ -220,13 +210,6 @@ class SessionTest(StubTestCase):
                     self.sf.verify_session(SESSION["sid"], "vsr_token")
 
                 self.assertEqual(caught.exception.code, "not_verified")
-
-    def test_a_headless_confirm_sends_no_token(self):
-        self.route("POST", f"VerificationSessions/{SESSION['sid']}/Confirm", (200, SESSION))
-
-        self.sf.verify_session(SESSION["sid"])
-
-        self.assertEqual(self.last()["body"], {})
 
     def test_every_refused_confirm_raises_so_nobody_is_signed_in_by_mistake(self):
         for status, code in [

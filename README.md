@@ -5,7 +5,13 @@ Verify phone numbers from your Python server with
 Python 3.9 or later.
 
 This library runs on **your server**. It holds your API key, which must never
-reach a browser or a mobile app.
+reach a browser or a mobile app. There are two ways to verify a number with
+it: send your user to our hosted verification page, or send and check codes
+directly and draw your own screens. For the hosted page, the browser or React
+Native side can use
+[`@secondfactor/js`](https://github.com/secondfactor/secondfactor-js), which
+opens the page and reads the result when the user returns; it never calls the
+API itself.
 
 ## Install
 
@@ -51,22 +57,6 @@ mark_phone_verified(user, result["phone"])
 **Always confirm the `sid` you stored**, never the `sf_session_id` from the URL:
 anyone can edit a URL. `verify_session` succeeds once. A second call raises
 `already_confirmed`, so a replayed return URL cannot sign anyone in.
-
-## Headless verification
-
-Draw the screens yourself. Your server creates the session and gives its token
-to your frontend, which calls our session endpoints directly (see the
-[`@secondfactor/js`](https://github.com/secondfactor/secondfactor-js)
-client). No proxy is needed, and your API key stays on your server.
-
-```python
-created = sf.create_session("+9779841000001", mode="headless")
-store_for_this_user(created["sid"])
-return {"client_token": created["client_token"]}   # to your frontend
-
-# When your frontend says the user is done:
-result = sf.verify_session(stored_sid)             # raises unless VERIFIED
-```
 
 ## Direct sends
 

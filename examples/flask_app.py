@@ -31,10 +31,6 @@ def index():
           <input name="phone" placeholder="+9779841000001" required>
           <button>Verify with the hosted page</button>
         </form>
-        <form method="post" action="/headless/start">
-          <input name="phone" placeholder="+9779841000001" required>
-          <button>Start a headless session</button>
-        </form>
     """
 
 
@@ -67,25 +63,3 @@ def verified():
         return f"Not verified ({error.code}). <a href='/'>Try again</a>", 400
     return f"Verified {result['phone']}."
 
-
-# ── Headless ────────────────────────────────────────────────────────────────
-
-
-@app.post("/headless/start")
-def start_headless():
-    created = sf.create_session(request.form["phone"], mode="headless")
-    session["sf_sid"] = created["sid"]
-    # Your frontend passes this token to @secondfactor/otp's withSession().
-    return {"client_token": created["client_token"]}
-
-
-@app.post("/headless/done")
-def headless_done():
-    stored_sid = session.pop("sf_sid", None)
-    if stored_sid is None:
-        abort(400)
-    try:
-        result = sf.verify_session(stored_sid)
-    except SecondFactorError as error:
-        return {"verified": False, "reason": error.code}, 400
-    return {"verified": True, "phone": result["phone"]}

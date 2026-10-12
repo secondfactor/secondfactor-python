@@ -46,7 +46,7 @@ import urllib.request
 import warnings
 
 __all__ = ["SecondFactor", "SecondFactorError"]
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 DEFAULT_BASE_URL = "https://api.secondfactor.ai"
 USER_AGENT = f"secondfactor-python/{__version__}"
@@ -118,16 +118,12 @@ class SecondFactor:
 
     # ─────────────────────────── verification sessions ───────────────────────────
 
-    def create_session(
-        self, to, mode="hosted", return_url=None, client_reference_id=None, template_sid=None
-    ):
+    def create_session(self, to, return_url, client_reference_id=None, template_sid=None):
         """Start verifying `to` (E.164, for example `+9779841000001`).
 
-        A hosted session needs `return_url`, on an origin listed under
-        Settings → Hosted verification, and answers with `url`: redirect the
-        user there. A headless session (`mode="headless"`) takes no
-        `return_url` and answers with `client_token`: give it to your own
-        frontend. Either is returned only this once.
+        `return_url` must be on an origin listed under Settings → Hosted
+        verification. The answer carries `url`, the hosted verification page:
+        redirect the user there. `url` is returned only this once.
 
         Store the returned `sid` against the user's pending sign-in; it is what
         you confirm with `verify_session` later. Creating a session is free;
@@ -135,7 +131,6 @@ class SecondFactor:
         """
         body = {
             "To": to,
-            "Mode": mode,
             "ReturnUrl": return_url,
             "ClientReferenceId": client_reference_id,
             "TemplateSid": template_sid,
@@ -147,14 +142,14 @@ class SecondFactor:
         who verified it; use `verify_session` for that."""
         return self._request("GET", self._service_path(f"VerificationSessions/{_segment(sid)}"))
 
-    def verify_session(self, stored_sid, return_token=None):
+    def verify_session(self, stored_sid, return_token):
         """Accept the outcome of the session you stored, exactly once.
 
         Pass the `sid` you stored when you created the session, never the
         `sf_session_id` from the return URL: that parameter only helps you find
-        your stored session, and anyone can edit a URL. For a hosted session,
-        pass the `sf_return_token` from the return URL; a headless session
-        needs none.
+        your stored session, and anyone can edit a URL. Pass the
+        `sf_return_token` from the return URL as `return_token`; when the URL
+        carried none, pass `None` and the call raises `missing_return_token`.
 
         Returns `{"phone", "client_reference_id", "session"}`, where `phone` is
         the number that was proven. Raises `SecondFactorError` otherwise, with
